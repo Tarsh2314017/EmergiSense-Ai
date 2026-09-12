@@ -1,10 +1,18 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import "./App.css";
 
 function App() {
   const [status, setStatus] = useState("System Ready");
   const [result, setResult] = useState(null);
+
+  const [showConfirmation, setShowConfirmation] = useState(false);
+  const [countdown, setCountdown] = useState(30);
+
   const [loading, setLoading] = useState(false);
+
+  // --------------------------------------------------
+  // Simulate accident
+  // --------------------------------------------------
 
   const simulateAccident = async () => {
     setLoading(true);
@@ -33,7 +41,7 @@ function App() {
       );
 
       if (!response.ok) {
-        throw new Error("Backend request failed");
+        throw new Error("Detection request failed");
       }
 
       const data = await response.json();
@@ -42,6 +50,8 @@ function App() {
 
       if (data.status === "possible_accident") {
         setStatus("⚠️ Possible Accident Detected");
+        setShowConfirmation(true);
+        setCountdown(30);
       } else {
         setStatus("✅ No Emergency Detected");
       }
@@ -53,6 +63,83 @@ function App() {
     }
   };
 
+  // --------------------------------------------------
+  // Countdown
+  // --------------------------------------------------
+
+  useEffect(() => {
+    if (!showConfirmation) {
+      return;
+    }
+
+    if (countdown <= 0) {
+      confirmEmergency();
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      setCountdown((previous) => previous - 1);
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [showConfirmation, countdown]);
+
+  // --------------------------------------------------
+  // User confirms emergency
+  // --------------------------------------------------
+
+  const confirmEmergency = async () => {
+    setShowConfirmation(false);
+    setStatus("🚨 Emergency Confirmed");
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/emergency/confirm?user_id=101",
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await response.json();
+
+      setResult((previous) => ({
+        ...previous,
+        ...data,
+      }));
+    } catch (error) {
+      console.error(error);
+      setStatus("❌ Unable to confirm emergency");
+    }
+  };
+
+  // --------------------------------------------------
+  // User says they are safe
+  // --------------------------------------------------
+
+  const cancelEmergency = async () => {
+    setShowConfirmation(false);
+    setStatus("✅ Emergency Cancelled");
+
+    try {
+      const response = await fetch(
+        "http://127.0.0.1:8000/api/emergency/cancel?user_id=101",
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await response.json();
+
+      setResult((previous) => ({
+        ...previous,
+        ...data,
+      }));
+    } catch (error) {
+      console.error(error);
+      setStatus("❌ Unable to cancel emergency");
+    }
+  };
+
   return (
     <div className="app">
 
@@ -60,7 +147,10 @@ function App() {
       <header className="header">
         <div>
           <h1>EmergeSense AI</h1>
-          <p>Autonomous Emergency Response System</p>
+
+          <p>
+            Autonomous Emergency Response System
+          </p>
         </div>
 
         <div className="system-status">
@@ -68,17 +158,17 @@ function App() {
         </div>
       </header>
 
-      {/* Main Dashboard */}
+      {/* Dashboard */}
       <main className="dashboard">
 
-        {/* Emergency Detection Card */}
+        {/* Detection Card */}
         <section className="card">
 
           <h2>Emergency Detection</h2>
 
           <p className="description">
-            Simulate vehicle sensor data to test the accident
-            detection system.
+            Simulate vehicle sensor data to test accident
+            detection.
           </p>
 
           <div className="sensor-grid">
@@ -108,7 +198,7 @@ function App() {
           <button
             className="emergency-button"
             onClick={simulateAccident}
-            disabled={loading}
+            disabled={loading || showConfirmation}
           >
             {loading
               ? "Analyzing..."
@@ -141,14 +231,16 @@ function App() {
 
               <p>
                 <strong>Speed Drop:</strong>{" "}
-                {result.speed_drop} km/h
+                {result.speed_drop ?? "-"} km/h
               </p>
 
-              <p>
-                <strong>Location:</strong>{" "}
-                {result.location.latitude},{" "}
-                {result.location.longitude}
-              </p>
+              {result.location && (
+                <p>
+                  <strong>Location:</strong>{" "}
+                  {result.location.latitude},{" "}
+                  {result.location.longitude}
+                </p>
+              )}
 
             </div>
           )}
@@ -156,6 +248,61 @@ function App() {
         </section>
 
       </main>
+
+      {/* Confirmation Modal */}
+      {showConfirmation && (
+        <div className="modal-overlay">
+
+          <div className="confirmation-modal">
+
+            <div className="warning-icon">
+              🚨
+            </div>
+
+            <h2>
+              Possible Accident Detected
+            </h2>
+
+            <p>
+              We detected an abnormal change in
+              vehicle movement.
+            </p>
+
+            <h3>
+              Are you safe?
+            </h3>
+
+            <div className="countdown">
+              {countdown}
+            </div>
+
+            <p className="countdown-text">
+              Emergency response will start
+              automatically if there is no response.
+            </p>
+
+            <div className="confirmation-buttons">
+
+              <button
+                className="safe-button"
+                onClick={cancelEmergency}
+              >
+                ✅ I'm Safe
+              </button>
+
+              <button
+                className="help-button"
+                onClick={confirmEmergency}
+              >
+                🚑 Send Help
+              </button>
+
+            </div>
+
+          </div>
+
+        </div>
+      )}
 
     </div>
   );
