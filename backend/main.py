@@ -1,13 +1,16 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from routes.emergency import router as emergency_router
+
+
 app = FastAPI(
     title="EmergeSense AI API",
     description="Backend API for the EmergeSense AI Emergency Response System",
     version="1.0.0",
 )
 
-# Allow the React frontend to communicate with the backend
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173"],
@@ -15,6 +18,9 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+app.include_router(emergency_router)
 
 
 @app.get("/")
